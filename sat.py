@@ -1,4 +1,3 @@
-from scipy.linalg import null_space
 from scipy.integrate import odeint
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,8 +9,7 @@ R = 6371000
 M = 5.972 * 10 ** 24
 h_atm = 2500000
 sec_orb_vel = 11200
-sat_velocity = 7700
-time = 90 * 60
+time = 110 * 60
 NP = np.array([0, 0, 1])
 NP = NP / np.linalg.norm(NP)
 
@@ -31,16 +29,16 @@ y_sp = R * np.sin(theta) * np.sin(phi)
 z_sp = R * np.cos(theta)
 
 
-def sat_tr(north_coord, west_coord, sat_h):
+def sat_tr(north_coord, west_coord, sat_h, sat_velocity):
     sat_height = sat_h
     nc = north_coord * np.pi / 180
     wc = west_coord * np.pi / 180
     init_pos = np.array([np.cos(nc) * np.cos(wc),
                          np.cos(nc) * np.sin(wc), np.sin(nc)])
     init_pos = init_pos / np.linalg.norm(init_pos)
-    ort_pl = null_space([init_pos])
     norm_orb_pl = np.cross(NP, init_pos)
-    vel_v = ort_pl @ np.array([[-4], [3]])
+    a = np.cross(norm_orb_pl, init_pos)
+    vel_v = np.array([a]).T
     vel_v = vel_v / np.linalg.norm(vel_v)
 
     r0 = init_pos * (R + sat_height)
@@ -98,7 +96,6 @@ def show_vp(tspan, x):
 
 
 def total_energy(tspan, k_e, p_e):
-    fig3 = plt.figure()
     ax_r = gca()
     ax_r.set_xlabel('t axis (s)')
     ax_r.set_ylabel('E axis (J)')
@@ -128,11 +125,10 @@ def show_tr(x, m, r0, np_d):
     grid(color='k', linestyle='--', linewidth=0.2)
 
 
-x, tspan, m, r0, np_d, kin_en, pot_en = sat_tr(90, 0, 408000)
-# x2 = sat_tr(-77, -77, 408000)[0]
-
-show_vp(tspan, x)
-total_energy(tspan, kin_en, pot_en)
+x, tspan, m, r0, np_d, kin_en, pot_en = sat_tr(0, 40, 408000, 7700)
+# sat_velocity = 7700
+# sat_vel_el = 9200
+# show_vp(tspan, x)
+# total_energy(tspan, kin_en, pot_en)
 show_tr(x, m, r0, np_d)
-# show_tr(x2, m, r0, np_d)
 plt.show()
