@@ -9,6 +9,7 @@ R = 6371000
 M = 5.972 * 10 ** 24
 h_atm = 2500000
 sec_orb_vel = 11200
+fir_orb_vel = 7500
 time = 110 * 60
 NP = np.array([0, 0, 1])
 NP = NP / np.linalg.norm(NP)
@@ -37,8 +38,8 @@ def sat_tr(north_coord, west_coord, sat_h, sat_velocity):
                          np.cos(nc) * np.sin(wc), np.sin(nc)])
     init_pos = init_pos / np.linalg.norm(init_pos)
     norm_orb_pl = np.cross(NP, init_pos)
-    a = np.cross(norm_orb_pl, init_pos)
-    vel_v = np.array([a]).T
+    orth_normorb_init_pl = np.cross(norm_orb_pl, init_pos)
+    vel_v = np.array([orth_normorb_init_pl]).T
     vel_v = vel_v / np.linalg.norm(vel_v)
 
     r0 = init_pos * (R + sat_height)
@@ -49,18 +50,6 @@ def sat_tr(north_coord, west_coord, sat_h, sat_velocity):
 
     x0 = np.hstack((r0, v0.T[0]))
 
-    if sat_height > h_atm:
-        a = "The satellite doesn't enter the Earth atmosphere"
-    else:
-        a = f'The satellite enters the Earth atmosphere (height - {sat_height / 1000} km)'
-
-    if sec_orb_vel > sat_velocity:
-        b = "The satellite doesn't leave the Earth orbit"
-    else:
-        b = "The satellite leaves the Earth orbit"
-
-    m = f'{a}\n{b}'
-
     def funcs(x, t):
         r = x[0:3]
         v = x[3:6]
@@ -69,12 +58,30 @@ def sat_tr(north_coord, west_coord, sat_h, sat_velocity):
         return np.concatenate((drdt, dvdt))
 
     x = odeint(funcs, x0, tspan)
+
+    if sat_height > h_atm:
+        a = "The satellite doesn't enter the Earth atmosphere"
+    else:
+        a = f'The satellite enters the Earth atmosphere'
+    if sec_orb_vel > sat_velocity:
+        b = "The satellite doesn't leave the Earth orbit"
+    else:
+        b = "The satellite leaves the Earth orbit"
+
+    if (fir_orb_vel < sat_velocity) and ((vel_v.T @ init_pos == 0) and (vel_v.T @ norm_orb_pl == 0)):
+        c = "The satellite doesn't fall on the Earth"
+    else:
+        c = "The satellite falls on the Earth"
+
+    m = f'{a}\n{b}\n{c}'
+
     kinet_en = [0] * tspan
     pot_en = [0] * tspan
 
     for i in range(len(tspan)):
         kinet_en[i] = 0.5 * (x[i][3:6]) @ (x[i][3:6])
         pot_en[i] = -(0.5 * G * M) / np.linalg.norm((x[i][0:3]))
+
     return x, tspan, m, r0, np_d, kinet_en, pot_en
 
 
@@ -96,6 +103,7 @@ def show_vp(tspan, x):
 
 
 def total_energy(tspan, k_e, p_e):
+    fig3 = plt.figure()
     ax_r = gca()
     ax_r.set_xlabel('t axis (s)')
     ax_r.set_ylabel('E axis (J)')
@@ -111,24 +119,24 @@ def total_energy(tspan, k_e, p_e):
 
 def show_tr(x, m, r0, np_d):
     fig2 = plt.figure()
-    ax = fig2.add_subplot(projection='3d')
+    ax = fig2.add_subplot(111, projection='3d')
     ax.set_title(m)
     ax.set_xlabel('X axis (m)')
     ax.set_ylabel('Y axis (m)')
     ax.set_zlabel('Z axis (m)')
+    ax.plot_surface(x_sp.T, y_sp.T, z_sp.T, facecolors=img / 255, cstride=1, rstride=1, alpha=0.1)
     ax.plot3D(x[:, 0], x[:, 1], x[:, 2], color='r')
-    ax.plot3D(r0[0], r0[1], r0[2], 'o', color='cyan')
-    ax.plot3D(np_d[0], np_d[1], np_d[2], 'o', color='g')
-    ax.plot_surface(x_sp.T, y_sp.T, z_sp.T, facecolors=img / 255, cstride=1, rstride=1)
+    ax.plot3D(r0[0], r0[1], r0[2], 'o', color='lime')
+    ax.plot3D(np_d[0], np_d[1], np_d[2], 'o', color='r')
     ax.axis('scaled')
-    ax = gca()
+
     grid(color='k', linestyle='--', linewidth=0.2)
 
 
-x, tspan, m, r0, np_d, kin_en, pot_en = sat_tr(0, 40, 408000, 7700)
-# sat_velocity = 7700
-# sat_vel_el = 9200
-# show_vp(tspan, x)
-# total_energy(tspan, kin_en, pot_en)
+x, tspan, m, r0, np_d, kin_en, pot_en = sat_tr(70, 30, 408000, 7700)
+x2, tspan2, m2, r02, np_d2, kin_en2, pot_en2 = sat_tr(70, 30, 408000, 9200)  # for ellipse trajectory
+show_vp(tspan, x)
+total_energy(tspan, kin_en, pot_en)
 show_tr(x, m, r0, np_d)
+show_tr(x2, m2, r02, np_d2)
 plt.show()
